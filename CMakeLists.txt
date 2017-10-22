@@ -11,6 +11,7 @@ find_package(catkin REQUIRED COMPONENTS
   roscpp
   drive_ros_msgs
   pcl_ros
+  laser_geometry
 )
 
 # just to make QTCreator include the PCL headers
@@ -18,7 +19,7 @@ find_package(PCL REQUIRED)
 
 catkin_package(
   INCLUDE_DIRS include
-  CATKIN_DEPENDS roscpp drive_ros_msgs pcl_ros
+  CATKIN_DEPENDS roscpp drive_ros_msgs pcl_ros laser_geometry
   # just to make QTCreator include the PCL headers
   DEPENDS PCL
 )

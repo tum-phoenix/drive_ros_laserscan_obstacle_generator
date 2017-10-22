@@ -2,7 +2,9 @@
 #define LASERSCAN_OBSTACLE_GENERATOR_H
 
 #include <ros/ros.h>
-#include <sensor_msgs/PointCloud2.h>
+#include <sensor_msgs/LaserScan.h>
+#include <laser_geometry/laser_geometry.h>
+#include <tf/transform_listener.h>
 
 class LaserscanObstacleGenerator {
 public:
@@ -10,7 +12,7 @@ public:
     ~LaserscanObstacleGenerator();
     bool init();
 private:
-    void laserscanCallback(const sensor_msgs::PointCloud2ConstPtr& scan_in);
+    void laserscanCallback(const sensor_msgs::LaserScanConstPtr& scan_in);
     ros::Subscriber scan_sub_;
     ros::Publisher obstacle_pub_;
     ros::NodeHandle nh_;
@@ -21,6 +23,9 @@ private:
     int minBlobElements_;
     int maxBlobElements_;
     float blobMaxDistance_;
+
+    laser_geometry::LaserProjection projector_;
+    tf::TransformListener listener_;
 };
 
 #endif // LASERSCAN_OBSTACLE_GENERATOR_H

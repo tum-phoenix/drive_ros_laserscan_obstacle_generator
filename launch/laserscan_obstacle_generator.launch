@@ -1,5 +1,5 @@
 <launch>
-    <arg name="pointcloud_in" default="/laser_pointcloud"/>
+    <arg name="scan_in" default="/scan"/>
     <arg name="obstacles_out" default="/laser_obstacles"/>
     <arg name="debug" default="false"/>
     <arg name="use_nodelet" default="false"/>
@@ -10,7 +10,7 @@
 
     <group unless="$(arg use_nodelet)">
         <node name="laserscan_obstacle_generator" pkg="laserscan_obstacle_generator" type="laserscan_obstacle_generator_node" respawn="false" output="screen" launch-prefix="$(arg launch-prefix)">
-            <remap from="pointcloud_in" to="$(arg pointcloud_in)"/>
+            <remap from="scan_in" to="$(arg scan_in)"/>
             <remap from="obstacles_out" to="$(arg obstacles_out)"/>
             <rosparam command="load" file="$(find laserscan_obstacle_generator)/config/laserscan_obstacle_generator.yaml"/>
         </node>
