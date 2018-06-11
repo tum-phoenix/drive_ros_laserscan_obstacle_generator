@@ -23,6 +23,7 @@ LaserscanObstacleGenerator::LaserscanObstacleGenerator(const ros::NodeHandle& pn
   minBlobElements_(5),
   maxBlobElements_(600),
   blobMaxDistance_(0.1),
+  baseFrame_("base_frame"),
   projector_(),
   listener_()
 {
@@ -37,10 +38,11 @@ bool LaserscanObstacleGenerator::init() {
   scan_sub_ = nh_.subscribe("scan_in", 10, &LaserscanObstacleGenerator::laserscanCallback, this);
 
   pnh_.getParam("obstacleInitTrust", obstacle_init_trust_);
-  pnh_.getParam("obstacleWidth", obstacle_width_);
-  pnh_.getParam("minBlobElements", minBlobElements_);
-  pnh_.getParam("maxBlobElements", maxBlobElements_);
-  pnh_.getParam("blobMaxDistance", blobMaxDistance_);
+  pnh_.getParam("obstacleWidth",     obstacle_width_);
+  pnh_.getParam("minBlobElements",   minBlobElements_);
+  pnh_.getParam("maxBlobElements",   maxBlobElements_);
+  pnh_.getParam("blobMaxDistance",   blobMaxDistance_);
+  pnh_.getParam("baseFrame",         baseFrame_);
   return true;
 }
 
@@ -48,21 +50,22 @@ void LaserscanObstacleGenerator::laserscanCallback(const sensor_msgs::LaserScanC
 
   if(!listener_.waitForTransform(
        scan_in->header.frame_id,
-       "/rear_axis_middle",
+       baseFrame_,
        scan_in->header.stamp + ros::Duration().fromSec(scan_in->ranges.size()*scan_in->time_increment),
        ros::Duration(1.0)))
   {
-    ROS_ERROR("Waiting for TF transform took to long to process scan, skipping!");
+    ROS_ERROR_STREAM("Waiting for TF transform between " << scan_in->header.frame_id
+                     << " and " << baseFrame_ << " took to long to process scan, skipping!");
     return;
   }
 
   sensor_msgs::PointCloud2 incoming_pointcloud;
-  projector_.transformLaserScanToPointCloud("/rear_axis_middle",*scan_in,
-          incoming_pointcloud,listener_);
+  projector_.transformLaserScanToPointCloud(baseFrame_, *scan_in,
+                                            incoming_pointcloud, listener_);
 
   sensor_msgs::PointCloud2::Ptr clusters (new sensor_msgs::PointCloud2);
   pcl::PCLPointCloud2 pcl_pc2;
-  pcl_conversions::toPCL(incoming_pointcloud,pcl_pc2);
+  pcl_conversions::toPCL(incoming_pointcloud, pcl_pc2);
   pcl::PointCloud<pcl::PointXYZ>::Ptr input_cloud (new pcl::PointCloud<pcl::PointXYZ>);
   pcl::fromPCLPointCloud2(pcl_pc2,*input_cloud);
   /* Creating the KdTree from input point cloud*/
@@ -90,7 +93,8 @@ void LaserscanObstacleGenerator::laserscanCallback(const sensor_msgs::LaserScanC
   */
   drive_ros_msgs::Obstacle temp_obstacle;
   drive_ros_msgs::ObstacleArray obstacle_out;
-  temp_obstacle.header = scan_in->header;
+  temp_obstacle.header.stamp = scan_in->header.stamp;
+  temp_obstacle.header.frame_id = baseFrame_;
 
   std::vector<pcl::PointIndices>::const_iterator it;
   std::vector<int>::const_iterator pit;

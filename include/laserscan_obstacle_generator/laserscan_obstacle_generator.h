@@ -23,6 +23,7 @@ private:
     int minBlobElements_;
     int maxBlobElements_;
     float blobMaxDistance_;
+    std::string baseFrame_;
 
     laser_geometry::LaserProjection projector_;
     tf::TransformListener listener_;
