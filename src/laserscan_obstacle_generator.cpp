@@ -13,6 +13,8 @@
 #include <pcl/sample_consensus/model_types.h>
 #include <pcl/segmentation/sac_segmentation.h>
 #include <pcl/segmentation/extract_clusters.h>
+#include <pcl/common/centroid.h>
+#include <pcl/common/distances.h>
 #include <pcl_conversions/pcl_conversions.h>
 
 LaserscanObstacleGenerator::LaserscanObstacleGenerator(const ros::NodeHandle& pnh):
@@ -63,7 +65,6 @@ void LaserscanObstacleGenerator::laserscanCallback(const sensor_msgs::LaserScanC
   projector_.transformLaserScanToPointCloud(baseFrame_, *scan_in,
                                             incoming_pointcloud, listener_);
 
-  sensor_msgs::PointCloud2::Ptr clusters (new sensor_msgs::PointCloud2);
   pcl::PCLPointCloud2 pcl_pc2;
   pcl_conversions::toPCL(incoming_pointcloud, pcl_pc2);
   pcl::PointCloud<pcl::PointXYZ>::Ptr input_cloud (new pcl::PointCloud<pcl::PointXYZ>);
@@ -79,39 +80,74 @@ void LaserscanObstacleGenerator::laserscanCallback(const sensor_msgs::LaserScanC
   */
   std::vector<pcl::PointIndices> cluster_indices;
   pcl::EuclideanClusterExtraction<pcl::PointXYZ> ec;
-  ec.setClusterTolerance (blobMaxDistance_);
-  ec.setMinClusterSize (minBlobElements_);
-  ec.setMaxClusterSize (maxBlobElements_);
-  ec.setSearchMethod (tree);
-  ec.setInputCloud (input_cloud);
+  ec.setClusterTolerance(blobMaxDistance_);
+  ec.setMinClusterSize(minBlobElements_);
+  ec.setMaxClusterSize(maxBlobElements_);
+  ec.setSearchMethod(tree);
+  ec.setInputCloud(input_cloud);
   /* Extract the clusters out of pc and save indices in cluster_indices.*/
-  ec.extract (cluster_indices);
+  ec.extract(cluster_indices);
 
+
+  drive_ros_msgs::ObstacleArray obstacle_out;
   /* To separate each cluster out of the vector<PointIndices> we have to
   * iterate through cluster_indices, create a new PointCloud for each
   * entry and write all points of the current cluster in the PointCloud.
   */
-  drive_ros_msgs::Obstacle temp_obstacle;
-  drive_ros_msgs::ObstacleArray obstacle_out;
-  temp_obstacle.header.stamp = scan_in->header.stamp;
-  temp_obstacle.header.frame_id = baseFrame_;
+  for(auto it = cluster_indices.begin(); it != cluster_indices.end(); ++it) {
 
-  std::vector<pcl::PointIndices>::const_iterator it;
-  std::vector<int>::const_iterator pit;
-  geometry_msgs::Point32 point;
-  for(it = cluster_indices.begin(); it != cluster_indices.end(); ++it) {
-    for(pit = it->indices.begin(); pit != it->indices.end(); pit++) {
+    drive_ros_msgs::Obstacle temp_obstacle;
+    temp_obstacle.header.stamp = scan_in->header.stamp;
+    temp_obstacle.header.frame_id = baseFrame_;
+
+    pcl::CentroidPoint<pcl::PointXYZ> centroid;
+
+    for(auto pit = it->indices.begin(); pit != it->indices.end(); pit++) {
       // messages doesnt have a constructor apparently
+      geometry_msgs::Point32 point;
       point.x = input_cloud->points[*pit].x;
       point.y = input_cloud->points[*pit].y;
       point.z = input_cloud->points[*pit].z;
       temp_obstacle.polygon.points.push_back(point);
+
+      // add point to centroid
+      centroid.add(input_cloud->points[*pit]);
     }
-    temp_obstacle.trust = obstacle_init_trust_;
-    // todo: fuse into trajectory instead of assuming blocking width
-    temp_obstacle.width = obstacle_width_;
-    temp_obstacle.obstacle_type = drive_ros_msgs::Obstacle::TYPE_LIDAR;
-    obstacle_out.obstacles.push_back(temp_obstacle);
+
+    // get centroid point
+    geometry_msgs::Point gm_centroid_pt;
+    pcl::PointXYZ pcl_centroid_pt;
+    centroid.get(pcl_centroid_pt);
+    gm_centroid_pt.x = pcl_centroid_pt.x;
+    gm_centroid_pt.y = pcl_centroid_pt.y;
+    gm_centroid_pt.z = pcl_centroid_pt.z;
+    temp_obstacle.centroid = gm_centroid_pt;
+
+    // check if in boundaries
+    float valid_cluster = true;
+    for(auto pit = it->indices.begin(); pit != it->indices.end(); pit++) {
+
+      float dis = pcl::euclideanDistance(input_cloud->points[*pit], pcl_centroid_pt);
+
+      // centroid may not be laying in the center -> compare to obstacle_width_ instead of obstacle_width_/2
+      if(obstacle_width_ < dis)
+      {
+          // object too big -> skip it
+          valid_cluster = false;
+          break;
+      }
+    }
+
+    if(valid_cluster)
+    {
+        // todo: fuse into trajectory instead of assuming blocking width
+        temp_obstacle.trust = obstacle_init_trust_;
+        temp_obstacle.width = obstacle_width_;
+        temp_obstacle.obstacle_type = drive_ros_msgs::Obstacle::TYPE_LIDAR;
+
+        obstacle_out.obstacles.push_back(temp_obstacle);
+    }
+
   }
 
   ROS_DEBUG_STREAM("Found "<<obstacle_out.obstacles.size()<<" obstacles in laser scanner pointcloud");
