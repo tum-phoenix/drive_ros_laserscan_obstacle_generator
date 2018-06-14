@@ -18,15 +18,16 @@ private:
     ros::NodeHandle nh_;
     ros::NodeHandle pnh_;
 
-    float obstacle_width_;
+    float minWidth_;
+    float maxWidth_;
+    float minLength_;
+    float maxLength_;
     float obstacle_init_trust_;
     int minBlobElements_;
     int maxBlobElements_;
     float blobMaxDistance_;
-    std::string baseFrame_;
 
     laser_geometry::LaserProjection projector_;
-    tf::TransformListener listener_;
 };
 
 #endif // LASERSCAN_OBSTACLE_GENERATOR_H

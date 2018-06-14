@@ -5,7 +5,7 @@ int main(int argc, char** argv)
   ros::init(argc, argv, "laserscan_obstacle_generator");
   ros::NodeHandle pnh("~");
 
-#ifndef NDEBUG
+#ifdef DEBUG
   // give GDB time to attach
   ros::Duration(2.0).sleep();
 #endif

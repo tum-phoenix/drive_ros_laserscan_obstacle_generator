@@ -2,6 +2,7 @@
 #include <drive_ros_msgs/Obstacle.h>
 #include <drive_ros_msgs/ObstacleArray.h>
 
+#include <limits>
 #include <pcl/ModelCoefficients.h>
 #include <pcl/point_types.h>
 #include <pcl/io/pcd_io.h>
@@ -20,14 +21,15 @@
 LaserscanObstacleGenerator::LaserscanObstacleGenerator(const ros::NodeHandle& pnh):
   nh_(),
   pnh_(pnh),
-  obstacle_width_(0.8),
+  minWidth_(0.0),
+  maxWidth_(1.0),
+  minLength_(0.0),
+  maxLength_(1.0),
   obstacle_init_trust_(0.3),
   minBlobElements_(5),
   maxBlobElements_(600),
   blobMaxDistance_(0.1),
-  baseFrame_("base_frame"),
-  projector_(),
-  listener_()
+  projector_()
 {
   obstacle_pub_ = nh_.advertise<drive_ros_msgs::ObstacleArray>("obstacles_out",1);
 }
@@ -40,30 +42,20 @@ bool LaserscanObstacleGenerator::init() {
   scan_sub_ = nh_.subscribe("scan_in", 10, &LaserscanObstacleGenerator::laserscanCallback, this);
 
   pnh_.getParam("obstacleInitTrust", obstacle_init_trust_);
-  pnh_.getParam("obstacleWidth",     obstacle_width_);
+  pnh_.getParam("minWidth",          minWidth_);
+  pnh_.getParam("maxWidth",          maxWidth_);
+  pnh_.getParam("minLength",         minLength_);
+  pnh_.getParam("maxLength",         maxLength_);
   pnh_.getParam("minBlobElements",   minBlobElements_);
   pnh_.getParam("maxBlobElements",   maxBlobElements_);
   pnh_.getParam("blobMaxDistance",   blobMaxDistance_);
-  pnh_.getParam("baseFrame",         baseFrame_);
   return true;
 }
 
 void LaserscanObstacleGenerator::laserscanCallback(const sensor_msgs::LaserScanConstPtr& scan_in) {
 
-  if(!listener_.waitForTransform(
-       scan_in->header.frame_id,
-       baseFrame_,
-       scan_in->header.stamp + ros::Duration().fromSec(scan_in->ranges.size()*scan_in->time_increment),
-       ros::Duration(1.0)))
-  {
-    ROS_ERROR_STREAM("Waiting for TF transform between " << scan_in->header.frame_id
-                     << " and " << baseFrame_ << " took to long to process scan, skipping!");
-    return;
-  }
-
   sensor_msgs::PointCloud2 incoming_pointcloud;
-  projector_.transformLaserScanToPointCloud(baseFrame_, *scan_in,
-                                            incoming_pointcloud, listener_);
+  projector_.projectLaser(*scan_in, incoming_pointcloud);
 
   pcl::PCLPointCloud2 pcl_pc2;
   pcl_conversions::toPCL(incoming_pointcloud, pcl_pc2);
@@ -98,9 +90,12 @@ void LaserscanObstacleGenerator::laserscanCallback(const sensor_msgs::LaserScanC
 
     drive_ros_msgs::Obstacle temp_obstacle;
     temp_obstacle.header.stamp = scan_in->header.stamp;
-    temp_obstacle.header.frame_id = baseFrame_;
+    temp_obstacle.header.frame_id = scan_in->header.frame_id;
 
     pcl::CentroidPoint<pcl::PointXYZ> centroid;
+
+    float max_x=FLT_MIN, max_y=FLT_MIN, max_z=FLT_MIN,
+          min_x=FLT_MAX, min_y=FLT_MAX, min_z=FLT_MAX;
 
     for(auto pit = it->indices.begin(); pit != it->indices.end(); pit++) {
       // messages doesnt have a constructor apparently
@@ -110,12 +105,38 @@ void LaserscanObstacleGenerator::laserscanCallback(const sensor_msgs::LaserScanC
       point.z = input_cloud->points[*pit].z;
       temp_obstacle.polygon.points.push_back(point);
 
+      // get min/max values
+      max_x = std::max(max_x, input_cloud->points[*pit].x);
+      max_y = std::max(max_y, input_cloud->points[*pit].y);
+      max_z = std::max(max_z, input_cloud->points[*pit].z);
+
+      min_x = std::min(min_x, input_cloud->points[*pit].x);
+      min_y = std::min(min_y, input_cloud->points[*pit].y);
+      min_z = std::min(min_z, input_cloud->points[*pit].z);
+
       // add point to centroid
       centroid.add(input_cloud->points[*pit]);
     }
 
+    // currently no rotation is supported :(
+    temp_obstacle.yaw = 0;
+
+    temp_obstacle.length = std::max(max_x - min_x, float(0.0));
+    temp_obstacle.width =  std::max(max_y - min_y, float(0.0));
+    temp_obstacle.height = std::max(max_z - min_z, float(0.0));
+
+    if(temp_obstacle.length > maxLength_ ||
+       temp_obstacle.length < minLength_ ||
+       temp_obstacle.width  > maxWidth_  ||
+       temp_obstacle.width  < minWidth_  )
+    {
+        ROS_DEBUG("Rejecting Object.");
+        continue;
+    }
+
+
     // get centroid point
-    geometry_msgs::Point gm_centroid_pt;
+    geometry_msgs::Point32 gm_centroid_pt;
     pcl::PointXYZ pcl_centroid_pt;
     centroid.get(pcl_centroid_pt);
     gm_centroid_pt.x = pcl_centroid_pt.x;
@@ -123,30 +144,12 @@ void LaserscanObstacleGenerator::laserscanCallback(const sensor_msgs::LaserScanC
     gm_centroid_pt.z = pcl_centroid_pt.z;
     temp_obstacle.centroid = gm_centroid_pt;
 
-    // check if in boundaries
-    float valid_cluster = true;
-    for(auto pit = it->indices.begin(); pit != it->indices.end(); pit++) {
+    // set trust and type
+    temp_obstacle.trust = obstacle_init_trust_;
+    temp_obstacle.obstacle_type = drive_ros_msgs::Obstacle::TYPE_LIDAR;
 
-      float dis = pcl::euclideanDistance(input_cloud->points[*pit], pcl_centroid_pt);
+    obstacle_out.obstacles.push_back(temp_obstacle);
 
-      // centroid may not be laying in the center -> compare to obstacle_width_ instead of obstacle_width_/2
-      if(obstacle_width_ < dis)
-      {
-          // object too big -> skip it
-          valid_cluster = false;
-          break;
-      }
-    }
-
-    if(valid_cluster)
-    {
-        // todo: fuse into trajectory instead of assuming blocking width
-        temp_obstacle.trust = obstacle_init_trust_;
-        temp_obstacle.width = obstacle_width_;
-        temp_obstacle.obstacle_type = drive_ros_msgs::Obstacle::TYPE_LIDAR;
-
-        obstacle_out.obstacles.push_back(temp_obstacle);
-    }
 
   }
 

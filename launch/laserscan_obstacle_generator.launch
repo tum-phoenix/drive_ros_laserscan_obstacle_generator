@@ -5,16 +5,16 @@
     <arg name="use_nodelet" default="false"/>
     <arg name="nodelet_manager" default=""/>
     <arg name="vehicle" default="cc2017_car"/>
-    <arg name="base_frame" default="ego_rear_axis_middle_ground" />
+    <arg name="output" default="screen" />
+
 
     <arg if="$(arg debug)" name="launch-prefix" value="gdb -ex run --args"/>
     <arg unless="$(arg debug)" name="launch-prefix" value=""/>
 
     <group unless="$(arg use_nodelet)">
-        <node name="laserscan_obstacle_generator" pkg="laserscan_obstacle_generator" type="laserscan_obstacle_generator_node" respawn="false" output="screen" launch-prefix="$(arg launch-prefix)">
+        <node name="laserscan_obstacle_generator" pkg="laserscan_obstacle_generator" type="laserscan_obstacle_generator_node" respawn="false" output="$(arg output)" launch-prefix="$(arg launch-prefix)">
             <remap from="scan_in" to="$(arg scan_topic)"/>
             <remap from="obstacles_out" to="$(arg obstacles_topic)"/>
-            <param name="baseFrame" type="str" value="$(arg base_frame)"/>
             <rosparam command="load" file="$(find laserscan_obstacle_generator)/config/$(arg vehicle).yaml"/>
         </node>
     </group>
