@@ -41,15 +41,16 @@ LaserscanObstacleGenerator::~LaserscanObstacleGenerator() {
 bool LaserscanObstacleGenerator::init() {
   scan_sub_ = nh_.subscribe("scan_in", 10, &LaserscanObstacleGenerator::laserscanCallback, this);
 
-  pnh_.getParam("obstacleInitTrust", obstacle_init_trust_);
-  pnh_.getParam("minWidth",          minWidth_);
-  pnh_.getParam("maxWidth",          maxWidth_);
-  pnh_.getParam("minLength",         minLength_);
-  pnh_.getParam("maxLength",         maxLength_);
-  pnh_.getParam("minBlobElements",   minBlobElements_);
-  pnh_.getParam("maxBlobElements",   maxBlobElements_);
-  pnh_.getParam("blobMaxDistance",   blobMaxDistance_);
-  return true;
+  bool ret = true;
+  ret &= pnh_.getParam("obstacleInitTrust", obstacle_init_trust_);
+  ret &= pnh_.getParam("minWidth",          minWidth_);
+  ret &= pnh_.getParam("maxWidth",          maxWidth_);
+  ret &= pnh_.getParam("minLength",         minLength_);
+  ret &= pnh_.getParam("maxLength",         maxLength_);
+  ret &= pnh_.getParam("minBlobElements",   minBlobElements_);
+  ret &= pnh_.getParam("maxBlobElements",   maxBlobElements_);
+  ret &= pnh_.getParam("blobMaxDistance",   blobMaxDistance_);
+  return ret;
 }
 
 void LaserscanObstacleGenerator::laserscanCallback(const sensor_msgs::LaserScanConstPtr& scan_in) {
@@ -80,7 +81,6 @@ void LaserscanObstacleGenerator::laserscanCallback(const sensor_msgs::LaserScanC
   /* Extract the clusters out of pc and save indices in cluster_indices.*/
   ec.extract(cluster_indices);
 
-
   drive_ros_msgs::ObstacleArray obstacle_out;
   /* To separate each cluster out of the vector<PointIndices> we have to
   * iterate through cluster_indices, create a new PointCloud for each
@@ -89,9 +89,6 @@ void LaserscanObstacleGenerator::laserscanCallback(const sensor_msgs::LaserScanC
   for(auto it = cluster_indices.begin(); it != cluster_indices.end(); ++it) {
 
     drive_ros_msgs::Obstacle temp_obstacle;
-    temp_obstacle.header.stamp = scan_in->header.stamp;
-    temp_obstacle.header.frame_id = scan_in->header.frame_id;
-
     pcl::CentroidPoint<pcl::PointXYZ> centroid;
 
     float max_x=FLT_MIN, max_y=FLT_MIN, max_z=FLT_MIN,
@@ -119,7 +116,9 @@ void LaserscanObstacleGenerator::laserscanCallback(const sensor_msgs::LaserScanC
     }
 
     // currently no rotation is supported :(
-    temp_obstacle.yaw = 0;
+    geometry_msgs::Quaternion q;
+    q.x=0; q.y=0; q.z=0; q.w=0;
+    temp_obstacle.orientation = q;
 
     temp_obstacle.length = std::max(max_x - min_x, float(0.0));
     temp_obstacle.width =  std::max(max_y - min_y, float(0.0));
@@ -143,6 +142,9 @@ void LaserscanObstacleGenerator::laserscanCallback(const sensor_msgs::LaserScanC
     gm_centroid_pt.y = pcl_centroid_pt.y;
     gm_centroid_pt.z = pcl_centroid_pt.z;
     temp_obstacle.centroid = gm_centroid_pt;
+
+    temp_obstacle.header.stamp = scan_in->header.stamp;
+    temp_obstacle.header.frame_id = scan_in->header.frame_id;
 
     // set trust and type
     temp_obstacle.trust = obstacle_init_trust_;
