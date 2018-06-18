@@ -41,6 +41,8 @@ LaserscanObstacleGenerator::~LaserscanObstacleGenerator() {
 bool LaserscanObstacleGenerator::init() {
   scan_sub_ = nh_.subscribe("scan_in", 10, &LaserscanObstacleGenerator::laserscanCallback, this);
 
+  std::vector<float> pose_cov_vec, twist_cov_vec;
+
   bool ret = true;
   ret &= pnh_.getParam("obstacleInitTrust", obstacle_init_trust_);
   ret &= pnh_.getParam("minWidth",          minWidth_);
@@ -50,6 +52,15 @@ bool LaserscanObstacleGenerator::init() {
   ret &= pnh_.getParam("minBlobElements",   minBlobElements_);
   ret &= pnh_.getParam("maxBlobElements",   maxBlobElements_);
   ret &= pnh_.getParam("blobMaxDistance",   blobMaxDistance_);
+  ret &= pnh_.getParam("pose_covariance",   pose_cov_vec);
+  ret &= pnh_.getParam("twist_covariance",  twist_cov_vec);
+
+  std::copy(pose_cov_vec.begin(), pose_cov_vec.begin() + 36, pose_covariance.begin());
+  std::copy(twist_cov_vec.begin(), twist_cov_vec.begin() + 36, twist_covariance.begin());
+
+  ROS_ASSERT(36 == pose_cov_vec.size());
+  ROS_ASSERT(36 == twist_cov_vec.size());
+
   return ret;
 }
 
@@ -118,7 +129,7 @@ void LaserscanObstacleGenerator::laserscanCallback(const sensor_msgs::LaserScanC
     // currently no rotation is supported :(
     geometry_msgs::Quaternion q;
     q.x=0; q.y=0; q.z=0; q.w=0;
-    temp_obstacle.orientation = q;
+    temp_obstacle.centroid_pose.pose.orientation = q;
 
     temp_obstacle.length = std::max(max_x - min_x, float(0.0));
     temp_obstacle.width =  std::max(max_y - min_y, float(0.0));
@@ -135,13 +146,13 @@ void LaserscanObstacleGenerator::laserscanCallback(const sensor_msgs::LaserScanC
 
 
     // get centroid point
-    geometry_msgs::Point32 gm_centroid_pt;
+    geometry_msgs::Point gm_centroid_pt;
     pcl::PointXYZ pcl_centroid_pt;
     centroid.get(pcl_centroid_pt);
     gm_centroid_pt.x = pcl_centroid_pt.x;
     gm_centroid_pt.y = pcl_centroid_pt.y;
     gm_centroid_pt.z = pcl_centroid_pt.z;
-    temp_obstacle.centroid = gm_centroid_pt;
+    temp_obstacle.centroid_pose.pose.position = gm_centroid_pt;
 
     temp_obstacle.header.stamp = scan_in->header.stamp;
     temp_obstacle.header.frame_id = scan_in->header.frame_id;
@@ -149,6 +160,10 @@ void LaserscanObstacleGenerator::laserscanCallback(const sensor_msgs::LaserScanC
     // set trust and type
     temp_obstacle.trust = obstacle_init_trust_;
     temp_obstacle.obstacle_type = drive_ros_msgs::Obstacle::TYPE_LIDAR;
+
+    // set covarinaces
+    temp_obstacle.centroid_pose.covariance = pose_covariance;
+    temp_obstacle.centroid_twist.covariance = twist_covariance;
 
     obstacle_out.obstacles.push_back(temp_obstacle);
 

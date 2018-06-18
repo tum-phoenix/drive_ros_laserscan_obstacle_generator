@@ -1,8 +1,0 @@
-obstacleInitTrust: 0.8
-minWidth:   0.0
-maxWidth:   0.5
-minLength:  0.0
-maxLength:  0.8
-minBlobElements: 5
-maxBlobElements: 600
-blobMaxDistance: 0.1

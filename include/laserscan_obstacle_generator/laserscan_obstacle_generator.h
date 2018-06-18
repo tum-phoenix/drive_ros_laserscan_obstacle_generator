@@ -27,6 +27,9 @@ private:
     int maxBlobElements_;
     float blobMaxDistance_;
 
+    boost::array<float, 36> pose_covariance;
+    boost::array<float, 36> twist_covariance;
+
     laser_geometry::LaserProjection projector_;
 };
 
