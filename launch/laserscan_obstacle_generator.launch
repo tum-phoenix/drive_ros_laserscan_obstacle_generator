@@ -1,6 +1,6 @@
 <launch>
     <arg name="scan_topic" default="/scan"/>
-    <arg name="obstacles_topic" default="/laser_obstacles"/>
+    <arg name="obstacles_topic" default="/laserscan_obstacles"/>
     <arg name="debug" default="false"/>
     <arg name="use_nodelet" default="false"/>
     <arg name="nodelet_manager" default=""/>
@@ -13,8 +13,8 @@
 
     <group unless="$(arg use_nodelet)">
         <node name="laserscan_obstacle_generator" pkg="laserscan_obstacle_generator" type="laserscan_obstacle_generator_node" respawn="false" output="$(arg output)" launch-prefix="$(arg launch-prefix)">
-            <remap from="scan_in" to="$(arg scan_topic)"/>
-            <remap from="obstacles_out" to="$(arg obstacles_topic)"/>
+            <remap from="~/scan_in" to="$(arg scan_topic)"/>
+            <remap from="~/obstacles_out" to="$(arg obstacles_topic)"/>
             <rosparam command="load" file="$(find laserscan_obstacle_generator)/config/$(arg vehicle).yaml"/>
         </node>
     </group>
