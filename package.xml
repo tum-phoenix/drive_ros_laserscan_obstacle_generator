@@ -1,6 +1,6 @@
 <?xml version="1.0"?>
 <package format="2">
-  <name>laserscan_obstacle_generator</name>
+  <name>drive_ros_laserscan_obstacle_generator</name>
   <version>0.0.0</version>
   <description>The laserscan_obstacle_generator package</description>
 

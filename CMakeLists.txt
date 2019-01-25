@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 2.8.3)
-project(laserscan_obstacle_generator)
+project(drive_ros_laserscan_obstacle_generator)
 
 #SET(CMAKE_BUILD_TYPE Release)
 SET(CMAKE_BUILD_TYPE Debug)
@@ -35,19 +35,19 @@ include_directories(
 # Obstacle generation node
 ################################################################################
 
-add_executable(laserscan_obstacle_generator_node
+add_executable(drive_ros_laserscan_obstacle_generator_node
     src/laserscan_obstacle_generator.cpp
     src/laserscan_obstacle_generator_node.cpp
     )
 
-add_dependencies(laserscan_obstacle_generator_node ${drive_ros_msgs_generate_messages_cpp} ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
+add_dependencies(drive_ros_laserscan_obstacle_generator_node ${drive_ros_msgs_generate_messages_cpp} ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
 
-target_link_libraries(laserscan_obstacle_generator_node
+target_link_libraries(drive_ros_laserscan_obstacle_generator_node
     ${catkin_LIBRARIES}
     ${PCL_LIBRARIES}
     )
 
-install(TARGETS laserscan_obstacle_generator_node
+install(TARGETS drive_ros_laserscan_obstacle_generator_node
     ARCHIVE DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
     LIBRARY DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
     RUNTIME DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
