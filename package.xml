@@ -2,7 +2,7 @@
 <package format="2">
   <name>drive_ros_laserscan_obstacle_generator</name>
   <version>0.0.0</version>
-  <description>The laserscan_obstacle_generator package</description>
+  <description>The drive_ros_laserscan_obstacle_generator package</description>
 
   <!-- One maintainer tag required, multiple allowed, one person per tag -->
   <!-- Example:  -->

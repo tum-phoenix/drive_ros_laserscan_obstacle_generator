@@ -1,4 +1,4 @@
-#include <laserscan_obstacle_generator/laserscan_obstacle_generator.h>
+#include <drive_ros_laserscan_obstacle_generator/laserscan_obstacle_generator.h>
 #include <drive_ros_msgs/Obstacle.h>
 #include <drive_ros_msgs/ObstacleArray.h>
 

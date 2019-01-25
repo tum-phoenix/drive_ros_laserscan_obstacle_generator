@@ -12,7 +12,7 @@
     <arg unless="$(arg debug)" name="launch-prefix" value=""/>
 
     <group unless="$(arg use_nodelet)">
-        <node name="laserscan_obstacle_generator" pkg="drive_ros_laserscan_obstacle_generator" type="drive_ros_laserscan_obstacle_generator_node" respawn="false" output="$(arg output)" launch-prefix="$(arg launch-prefix)">
+        <node name="laserscan_obstacle_generator" pkg="drive_ros_laserscan_obstacle_generator" type="laserscan_obstacle_generator_node" respawn="false" output="$(arg output)" launch-prefix="$(arg launch-prefix)">
             <remap from="scan_in" to="$(arg scan_topic)"/>
             <remap from="obstacles_out" to="$(arg obstacles_topic)"/>
             <rosparam command="load" file="$(find drive_ros_laserscan_obstacle_generator)/config/$(arg vehicle).yaml"/>
