@@ -169,6 +169,7 @@ void LaserscanObstacleGenerator::laserscanCallback(const sensor_msgs::LaserScanC
 
 
   }
+  obstacle_out.header.stamp = scan_in->header.stamp;
 
   ROS_DEBUG_STREAM("Found "<<obstacle_out.obstacles.size()<<" obstacles in laser scanner pointcloud");
   obstacle_pub_.publish(obstacle_out);
